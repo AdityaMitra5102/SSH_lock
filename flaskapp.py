@@ -67,6 +67,12 @@ def get_users():
 			users.append(str(line).split(':')[0].strip())
 	return users
 
+def notify_admin(user, func):
+	try:
+		subprocess.Popen(f'NotifyTG {user} {func}'.split()).wait()
+	except exception as e:
+		print(e)
+
 def change_user_passwd(user, password):
 	if user not in get_users():
 		return False
@@ -80,25 +86,21 @@ def modify_user(username, func='lock'):
 		return False
 	config=open(f'{secretpath}/locked.conf', 'r').read()
 	fline=config.split('\n')[0]
-	while fline.endswith(','):
-		fline=fline[:-1]
-	locked_users=fline.split(',')[1:]
+	fline=fline[len('Match User'):]
+	locked_users=fline.split(',')
 	locked_users=[item.strip() for item in locked_users]
+	locked_users=[x for x in locked_users if any(c.isalpha() for c in x)]
 	if func=='lock':
 		if username not in locked_users:
-			try:
-				os.system(f'NotifyTG {username} {funv}')
-			except:
-				pass
+			print("Notify lock")
+			notify_admin(username, func)
 			locked_users.append(username)
 	if func=='unlock':
 		if username in locked_users:
-			try:
-				os.system(f'NotifyTG {username} {funv}')
-			except:
-				pass
+			print("Notify unlock")
+			notify_admin(username, func)
 			locked_users.remove(username)
-	locked_users_string=', '.join(locked_users)
+	locked_users_string=','.join(locked_users)
 	if len(locked_users)==0:
 		locked_users_string=','
 	filecont=f'''Match User {locked_users_string}
@@ -106,7 +108,6 @@ def modify_user(username, func='lock'):
 	ForceCommand echo "Account locked. Unlock at https://{url}/unlock."; exit 1
 	PasswordAuthentication no
 	PubkeyAuthentication no'''
-	
 	open(f'{secretpath}/locked.conf', 'w').write(filecont)
 	subprocess.Popen(f'sudo cp {secretpath}/locked.conf /etc/ssh/sshd_config.d/locked.conf'. split()).wait()
 	subprocess.Popen(f'sudo systemctl reload ssh'.split()).wait()
@@ -217,27 +218,17 @@ def authenticate_begin():
 	priv = generate_private_key(SECP256R1(), default_backend())
 	session["priv"] = priv.private_bytes(serialization.Encoding.PEM,  serialization.PrivateFormat.PKCS8,  serialization.NoEncryption()).decode()
 	pub_raw = priv.public_key().public_bytes(serialization.Encoding.X962, serialization.PublicFormat.UncompressedPoint)
-	options, state= server.authenticate_begin(challenge=pub_raw)
+	options, state= server.authenticate_begin(challenge=pub_raw, user_verification='discouraged')
 	session['state']=state
 	return jsonify(dict(options))
 
 @app.route('/api/authenticate/complete', methods=["POST"])
 def authenticate_complete():
 	response=request.json
-	
-	print("RESPONSE ", json.dumps(response, indent=4))
-	print("STATE" ,session['state'])
-
 	cdjb64=response['response']['clientDataJSON']
 	cdj=b64decode(cdjb64)
-	print('Client data JSON ', cdj)
-	
 	challenge=json.loads(cdj)['challenge']
-	print(challenge)
-	
 	raw=b64decode(challenge)
-	print(raw)
-
 	client_pub_bytes=raw[:65]
 	iv=raw[65:77]
 	ciphertext=raw[77:]
@@ -246,16 +237,10 @@ def authenticate_complete():
 	shared = priv.exchange(ECDH(), client_pub)
 	key = HKDF(algorithm=hashes.SHA256(), length=32, salt=None, info=b"", backend=default_backend()).derive(shared)
 	plaintext = AESGCM(key).decrypt(iv, ciphertext, None).decode()
-	print(f"decrypted: {plaintext}")
 	session.pop("priv", None)
-	
 	userHandle=b64decode(response['response']['userHandle']).decode()
-	print('USER HANDLE', userHandle)
 	credentials=read_creds()
-	print('Credentials ', credentials)
 	usercreds=credentials.get(userHandle, [])
-	print('USER CREDS ', usercreds)
-
 	state=session.pop('state')
 	state['challenge']=challenge
 	server.authenticate_complete(state, usercreds, response)
