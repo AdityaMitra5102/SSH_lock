@@ -1,4 +1,3 @@
-
 url='project.mukham.in'
 secretpath='/etc/secrets'
 threshold=600
