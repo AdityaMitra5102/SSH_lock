@@ -86,9 +86,11 @@ def modify_user(username, func='lock'):
 	locked_users=[item.strip() for item in locked_users]
 	if func=='lock':
 		if username not in locked_users:
+			os.system(f'NotifyTG {username} {funv}')
 			locked_users.append(username)
 	if func=='unlock':
 		if username in locked_users:
+			os.system(f'NotifyTG {username} {funv}')
 			locked_users.remove(username)
 	locked_users_string=', '.join(locked_users)
 	if len(locked_users)==0:
