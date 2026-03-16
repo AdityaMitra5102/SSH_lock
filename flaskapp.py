@@ -228,6 +228,14 @@ def authenticate_complete():
 	cdjb64=response['response']['clientDataJSON']
 	cdj=b64decode(cdjb64)
 	challenge=json.loads(cdj)['challenge']
+	
+	userHandle=b64decode(response['response']['userHandle']).decode()
+	credentials=read_creds()
+	usercreds=credentials.get(userHandle, [])
+	state=session.pop('state')
+	state['challenge']=challenge
+	server.authenticate_complete(state, usercreds, response)
+	
 	raw=b64decode(challenge)
 	client_pub_bytes=raw[:65]
 	iv=raw[65:77]
@@ -238,12 +246,6 @@ def authenticate_complete():
 	key = HKDF(algorithm=hashes.SHA256(), length=32, salt=None, info=b"", backend=default_backend()).derive(shared)
 	plaintext = AESGCM(key).decrypt(iv, ciphertext, None).decode()
 	session.pop("priv", None)
-	userHandle=b64decode(response['response']['userHandle']).decode()
-	credentials=read_creds()
-	usercreds=credentials.get(userHandle, [])
-	state=session.pop('state')
-	state['challenge']=challenge
-	server.authenticate_complete(state, usercreds, response)
 	if not change_user_passwd(userHandle, plaintext):
 		return "Error", 500
 	return 'ok'
