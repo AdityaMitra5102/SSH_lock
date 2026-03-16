@@ -240,12 +240,11 @@ def authenticate_complete():
 	client_pub_bytes=raw[:65]
 	iv=raw[65:77]
 	ciphertext=raw[77:]
-	priv = load_pem_private_key(session["priv"].encode(), password=None, backend=default_backend())
+	priv = load_pem_private_key(session.pop("priv").encode(), password=None, backend=default_backend())
 	client_pub = ec.EllipticCurvePublicKey.from_encoded_point(SECP256R1(), client_pub_bytes)
 	shared = priv.exchange(ECDH(), client_pub)
 	key = HKDF(algorithm=hashes.SHA256(), length=32, salt=oldchallenge, info=b"", backend=default_backend()).derive(shared)
 	plaintext = AESGCM(key).decrypt(iv, ciphertext, None).decode()
-	session.pop("priv", None)
 	if not change_user_passwd(userHandle, plaintext):
 		return "Error", 500
 	return 'ok'
