@@ -228,7 +228,7 @@ def authenticate_complete():
 	cdjb64=response['response']['clientDataJSON']
 	cdj=b64decode(cdjb64)
 	challenge=json.loads(cdj)['challenge']
-	oldchallenge=b64decode(state['challenge'])
+	oldchallenge=b64decode(session['state']['challenge'])
 	userHandle=b64decode(response['response']['userHandle']).decode()
 	credentials=read_creds()
 	usercreds=credentials.get(userHandle, [])
