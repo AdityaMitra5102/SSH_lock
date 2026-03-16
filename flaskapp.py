@@ -228,7 +228,7 @@ def authenticate_complete():
 	cdjb64=response['response']['clientDataJSON']
 	cdj=b64decode(cdjb64)
 	challenge=json.loads(cdj)['challenge']
-	
+	oldchallenge=b64decode(state['challenge'])
 	userHandle=b64decode(response['response']['userHandle']).decode()
 	credentials=read_creds()
 	usercreds=credentials.get(userHandle, [])
@@ -240,7 +240,7 @@ def authenticate_complete():
 	client_pub_bytes=raw[:65]
 	iv=raw[65:77]
 	ciphertext=raw[77:]
-	priv = load_pem_private_key(session["priv"].encode(), password=None, backend=default_backend())
+	priv = load_pem_private_key(session["priv"].encode(), password=oldchallenge, backend=default_backend())
 	client_pub = ec.EllipticCurvePublicKey.from_encoded_point(SECP256R1(), client_pub_bytes)
 	shared = priv.exchange(ECDH(), client_pub)
 	key = HKDF(algorithm=hashes.SHA256(), length=32, salt=None, info=b"", backend=default_backend()).derive(shared)
