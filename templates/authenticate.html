@@ -46,7 +46,7 @@ const c = window.crypto.subtle;
     {
       name: "HKDF",
       hash: "SHA-256",
-      salt: new Uint8Array(0),
+      salt: challenge,
       info: new Uint8Array(0)
     },
     hkdfMaterial,
