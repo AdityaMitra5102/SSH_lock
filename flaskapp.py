@@ -35,10 +35,7 @@ except:
 	open(f'{secretpath}/fernetkey', 'wb').write(fernetkeytemp)
 	fernetkey=open(f'{secretpath}/fernetkey', 'rb').read()
 
-try:
-	open(f'{secretpath}/url.txt', 'w').write(url)
-except:
-	pass
+open(f'{secretpath}/url.txt', 'w').write(url)
 
 f=Fernet(fernetkey)
 app.secret_key=fernetkey
