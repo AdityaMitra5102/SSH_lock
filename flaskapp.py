@@ -43,6 +43,12 @@ app.secret_key=fernetkey
 rp= PublicKeyCredentialRpEntity(name='Test', id=url)
 server=Fido2Server(rp)
 
+qr=''
+try:
+	qr=open(f'{secretpath}/qr.txt', 'r').read()
+except:
+	pass
+
 def b64decode(encoded):
 	while len(encoded)%4!=0:
 		encoded=encoded+'='
@@ -125,7 +131,7 @@ def is_local(request):
 
 
 def create_banner():
-	banner=f'Account locked due to probable brute force attack. Unlock at https://{url}/unlock.\n'
+	banner=f'Account locked due to probable brute force attack. Unlock at https://{url}/unlock.\n\n{qr}'
 	open(f'{secretpath}/locked_banner.txt', 'w').write(banner)
 	subprocess.Popen(f'sudo cp {secretpath}/locked_banner.txt /etc/ssh/locked_banner.txt'.split()).wait()
 	subprocess.Popen(f'sudo systemctl reload ssh'.split()).wait()
