@@ -1,5 +1,5 @@
 <html>
-<head><title>Change password</title>
+<head><title>SSHafe</title>
 <script type="module">
  import {
         get,
@@ -88,9 +88,630 @@ const c = window.crypto.subtle;
       
     }
 window.start=start;
-start();
-
 </script>
+
+<style>
+  :root {
+    --bg: #020b10;
+    --cyan: #00ffe7;
+    --red: #ff2244;
+    --amber: #ffaa00;
+    --dim: rgba(0,255,231,0.07);
+    --grid: rgba(0,255,231,0.04);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    font-family: 'Courier New', monospace;
+  }
+
+  /* ─── Perspective grid floor ─── */
+  .grid-floor {
+    position: fixed;
+    bottom: 0; left: 0;
+    width: 100%; height: 60%;
+    background:
+      repeating-linear-gradient(90deg, var(--grid) 0px, transparent 1px, transparent 80px),
+      repeating-linear-gradient(0deg,  var(--grid) 0px, transparent 1px, transparent 80px);
+    transform: perspective(600px) rotateX(60deg);
+    transform-origin: bottom center;
+    pointer-events: none;
+  }
+
+  /* ─── Horizon glow ─── */
+  .horizon {
+    position: fixed;
+    left: 0; right: 0;
+    top: 40%;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+    box-shadow: 0 0 40px 8px rgba(0,255,231,0.3);
+    pointer-events: none;
+  }
+
+  /* ─── Scanlines ─── */
+  .scanlines {
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      to bottom,
+      rgba(0,0,0,0.04) 0px,
+      rgba(0,0,0,0.04) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+    pointer-events: none;
+    z-index: 100;
+  }
+
+  /* ─── Vignette ─── */
+  .vignette {
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(ellipse at center, transparent 40%, rgba(2,11,16,0.85) 100%);
+    pointer-events: none;
+    z-index: 90;
+  }
+
+  /* ─── Floating hex nodes ─── */
+  .nodes {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .node {
+    position: absolute;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--cyan);
+    box-shadow: 0 0 8px 2px var(--cyan);
+    animation: drift linear infinite;
+    opacity: 0;
+  }
+  .node.red {
+    background: var(--red);
+    box-shadow: 0 0 8px 2px var(--red);
+    animation-name: drift-red;
+  }
+
+  @keyframes drift {
+    0%   { transform: translateY(100vh) translateX(0); opacity: 0; }
+    5%   { opacity: 0.9; }
+    95%  { opacity: 0.7; }
+    100% { transform: translateY(-10vh) translateX(calc(var(--dx)*60px)); opacity: 0; }
+  }
+  @keyframes drift-red {
+    0%   { transform: translateY(100vh) translateX(0); opacity: 0; }
+    5%   { opacity: 1; }
+    50%  { opacity: 1; }
+    100% { transform: translateY(-10vh) translateX(calc(var(--dx)*60px)); opacity: 0; }
+  }
+
+  /* ─── Connection lines (SVG) ─── */
+  .lines-svg {
+    position: fixed;
+    inset: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    opacity: 0.15;
+  }
+
+  /* ─── Hexagon shield center ─── */
+  .shield-wrap {
+    position: fixed;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: all;
+    cursor: pointer;
+    z-index: 200;
+  }
+  .shield-wrap:hover .hex {
+    animation: hex-pulse-hover 0.6s ease-in-out infinite;
+    background: radial-gradient(ellipse at center,
+      rgba(0,255,231,0.18) 0%,
+      rgba(0,255,231,0.06) 60%,
+      transparent 100%);
+  }
+  .shield-wrap:hover .hex::before {
+    box-shadow: inset 0 0 50px rgba(0,255,231,0.4), 0 0 60px rgba(0,255,231,0.6);
+  }
+  .shield-wrap:active .hex {
+    filter: drop-shadow(0 0 40px rgba(0,255,231,1)) brightness(1.4);
+    transform: scale(0.94);
+  }
+  @keyframes hex-pulse-hover {
+    0%, 100% { filter: drop-shadow(0 0 18px rgba(0,255,231,0.9)); }
+    50%       { filter: drop-shadow(0 0 36px rgba(0,255,231,1)); }
+  }
+
+  /* ─── Alert text panel ─── */
+  .alert-panel {
+    position: fixed;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 520px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    z-index: 199;
+    pointer-events: none;
+    text-align: center;
+  }
+  .alert-title {
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    letter-spacing: 5px;
+    text-transform: uppercase;
+    color: var(--red);
+    text-shadow: 0 0 12px var(--red);
+    margin-bottom: 18px;
+    animation: flicker 4s ease-in-out infinite;
+  }
+  .alert-title::before {
+    content: '⬤  ';
+    font-size: 8px;
+    animation: blink 1s step-end infinite;
+  }
+  .text-above { margin-bottom: 130px; }
+  .text-below { margin-top: 130px; }
+  .alert-body {
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    line-height: 2;
+    letter-spacing: 1.5px;
+    color: rgba(0,255,231,0.5);
+    max-width: 360px;
+  }
+  .alert-body .hl {
+    color: rgba(0,255,231,0.9);
+    text-shadow: 0 0 8px rgba(0,255,231,0.5);
+  }
+  .alert-body .danger-hl {
+    color: rgba(255,34,68,0.85);
+    text-shadow: 0 0 8px rgba(255,34,68,0.4);
+  }
+  .passkey-note {
+    display: block;
+    margin-top: 12px;
+    font-size: 10px;
+    letter-spacing: 2.5px;
+    color: rgba(255,170,0,0.55);
+    text-shadow: 0 0 6px rgba(255,170,0,0.3);
+  }
+  .divider {
+    width: 100px; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+    opacity: 0.25;
+    margin: 14px auto 0;
+  }
+  @keyframes flicker {
+    0%, 94%, 100% { opacity: 1; }
+    95%  { opacity: 0.3; }
+    97%  { opacity: 1; }
+    98%  { opacity: 0.15; }
+    99%  { opacity: 1; }
+  }
+
+  .hex {
+    width: 180px; height: 207px;
+    clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+    background: radial-gradient(ellipse at center,
+      rgba(0,255,231,0.08) 0%,
+      rgba(0,255,231,0.02) 60%,
+      transparent 100%);
+    border: none;
+    position: relative;
+    animation: hex-pulse 3s ease-in-out infinite;
+  }
+
+  .hex::before {
+    content: '';
+    position: absolute;
+    inset: 3px;
+    clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+    border: 2px solid var(--cyan);
+    box-shadow: inset 0 0 30px rgba(0,255,231,0.2), 0 0 30px rgba(0,255,231,0.3);
+    background: transparent;
+  }
+
+  @keyframes hex-pulse {
+    0%, 100% { filter: drop-shadow(0 0 8px rgba(0,255,231,0.5)); }
+    50%       { filter: drop-shadow(0 0 20px rgba(0,255,231,0.9)); }
+  }
+
+  /* lock icon inside hex */
+  .lock {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 48px; height: 48px;
+  }
+  .lock-body {
+    width: 36px; height: 28px;
+    border: 3px solid var(--cyan);
+    border-radius: 5px;
+    position: absolute;
+    bottom: 0; left: 50%;
+    transform: translateX(-50%);
+    box-shadow: 0 0 10px var(--cyan);
+  }
+  .lock-shackle {
+    width: 22px; height: 16px;
+    border: 3px solid var(--cyan);
+    border-bottom: none;
+    border-radius: 11px 11px 0 0;
+    position: absolute;
+    top: 0; left: 50%;
+    transform: translateX(-50%);
+    box-shadow: 0 0 10px var(--cyan);
+  }
+
+  /* ─── Orbiting rings ─── */
+  .orbit {
+    position: fixed;
+    top: 50%; left: 50%;
+    border-radius: 50%;
+    border: 1px solid rgba(0,255,231,0.15);
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    animation: spin linear infinite;
+  }
+  .orbit::after {
+    content: '';
+    position: absolute;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    top: -4px; left: 50%;
+    transform: translateX(-50%);
+    background: var(--cyan);
+    box-shadow: 0 0 12px var(--cyan);
+  }
+  .o1 { width: 280px; height: 280px; animation-duration: 12s; }
+  .o2 { width: 400px; height: 400px; animation-duration: 20s; animation-direction: reverse; border-color: rgba(255,34,68,0.12); }
+  .o2::after { background: var(--red); box-shadow: 0 0 12px var(--red); }
+  .o3 { width: 540px; height: 540px; animation-duration: 30s; border-color: rgba(255,170,0,0.10); }
+  .o3::after { background: var(--amber); box-shadow: 0 0 12px var(--amber); }
+
+  @keyframes spin {
+    from { transform: translate(-50%, -50%) rotate(0deg); }
+    to   { transform: translate(-50%, -50%) rotate(360deg); }
+  }
+
+  /* ─── Alert pulse ring (breach effect) ─── */
+  .breach-ring {
+    position: fixed;
+    top: 50%; left: 50%;
+    width: 0; height: 0;
+    border-radius: 50%;
+    border: 2px solid var(--red);
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    animation: breach 4s ease-out infinite;
+    animation-delay: 2s;
+  }
+  @keyframes breach {
+    0%   { width: 100px; height: 100px; opacity: 0.8; border-color: var(--red); }
+    100% { width: 700px; height: 700px; opacity: 0; border-color: rgba(255,34,68,0); }
+  }
+
+  /* ─── Data streams (terminal rain columns) ─── */
+  .streams {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    display: flex;
+    gap: 0;
+  }
+  .stream-col {
+    position: absolute;
+    top: 0;
+    font-size: 11px;
+    color: var(--cyan);
+    opacity: 0;
+    animation: stream-fall linear infinite;
+    white-space: nowrap;
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    letter-spacing: 2px;
+    text-shadow: 0 0 6px var(--cyan);
+    filter: blur(0.3px);
+  }
+  .stream-col.red-stream {
+    color: var(--red);
+    text-shadow: 0 0 6px var(--red);
+  }
+  @keyframes stream-fall {
+    0%   { transform: translateY(-100%); opacity: 0; }
+    10%  { opacity: 0.6; }
+    90%  { opacity: 0.3; }
+    100% { transform: translateY(110vh); opacity: 0; }
+  }
+
+  /* ─── Corner brackets ─── */
+  .corner { position: fixed; width: 40px; height: 40px; pointer-events: none; }
+  .corner::before, .corner::after {
+    content: '';
+    position: absolute;
+    background: var(--cyan);
+    box-shadow: 0 0 6px var(--cyan);
+  }
+  .corner::before { width: 100%; height: 2px; }
+  .corner::after  { width: 2px; height: 100%; }
+
+  .tl { top: 20px; left: 20px; }
+  .tr { top: 20px; right: 20px; transform: scaleX(-1); }
+  .bl { bottom: 20px; left: 20px; transform: scaleY(-1); }
+  .br { bottom: 20px; right: 20px; transform: scale(-1); }
+
+  /* ─── Status bars ─── */
+  .status-bar {
+    position: fixed;
+    left: 30px; top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    pointer-events: none;
+  }
+  .bar-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    opacity: 0.5;
+    animation: bar-blink 3s ease-in-out infinite;
+  }
+  .bar-row:nth-child(2) { animation-delay: 0.7s; }
+  .bar-row:nth-child(3) { animation-delay: 1.4s; }
+  .bar-label {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--cyan);
+    box-shadow: 0 0 6px var(--cyan);
+  }
+  .bar-label.danger { background: var(--red); box-shadow: 0 0 6px var(--red); }
+  .bar-track {
+    width: 80px; height: 3px;
+    background: rgba(0,255,231,0.1);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--cyan), rgba(0,255,231,0.4));
+    border-radius: 2px;
+    animation: fill-anim 3s ease-in-out infinite;
+  }
+  .bar-fill.danger {
+    background: linear-gradient(90deg, var(--red), rgba(255,34,68,0.4));
+  }
+  @keyframes bar-blink {
+    0%, 100% { opacity: 0.5; }
+    50%       { opacity: 0.9; }
+  }
+  @keyframes fill-anim {
+    0%   { width: 60%; }
+    50%  { width: 85%; }
+    100% { width: 60%; }
+  }
+
+  /* ─── Top ticker ─── */
+  .ticker-wrap {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 28px;
+    border-bottom: 1px solid rgba(0,255,231,0.12);
+    background: rgba(0,20,15,0.6);
+    backdrop-filter: blur(2px);
+    overflow: hidden;
+    pointer-events: none;
+  }
+  .ticker {
+    display: flex;
+    align-items: center;
+    height: 100%;
+    white-space: nowrap;
+    animation: ticker-scroll 18s linear infinite;
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: rgba(0,255,231,0.4);
+  }
+  .ticker span { margin: 0 40px; }
+  .ticker .warn { color: rgba(255,34,68,0.6); }
+  @keyframes ticker-scroll {
+    from { transform: translateX(100vw); }
+    to   { transform: translateX(-100%); }
+  }
+
+  /* ─── Bottom bar ─── */
+  .bottom-bar {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    height: 28px;
+    border-top: 1px solid rgba(0,255,231,0.12);
+    background: rgba(0,20,15,0.6);
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+    padding: 0 30px;
+    gap: 20px;
+  }
+  .dot-indicator {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--cyan);
+    box-shadow: 0 0 6px var(--cyan);
+    animation: blink 1.2s step-end infinite;
+  }
+  .dot-indicator.red { background: var(--red); box-shadow: 0 0 6px var(--red); animation-delay: 0.4s; }
+  .dot-indicator.amber { background: var(--amber); box-shadow: 0 0 6px var(--amber); animation-delay: 0.8s; }
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.1; }
+  }
+</style>
 </head>
+<body>
+
+<!-- Grid + Horizon -->
+<div class="grid-floor"></div>
+<div class="horizon"></div>
+
+<!-- Scanlines + Vignette -->
+<div class="scanlines"></div>
+<div class="vignette"></div>
+
+<!-- Corner brackets -->
+<div class="corner tl"></div>
+<div class="corner tr"></div>
+<div class="corner bl"></div>
+<div class="corner br"></div>
+
+<!-- Ticker -->
+<div class="ticker-wrap">
+  <div class="ticker">
+    <span>SSH AUTH MONITOR</span>
+    <span class="warn">⬤ INTRUSION DETECTED</span>
+    <span>ANALYZING PACKET SIGNATURES</span>
+    <span class="warn">BRUTE FORCE PATTERN: 192.168.1.104</span>
+    <span>FIREWALL RULES UPDATED</span>
+    <span class="warn">CREDENTIAL RESET INITIATED</span>
+    <span>ENTROPY CHECK: PASS</span>
+    <span class="warn">⬤ RATE LIMIT EXCEEDED</span>
+    <span>BLOCK TABLE SYNCHRONIZED</span>
+    <span>KEYPAIR ROTATION ACTIVE</span>
+    <span class="warn">ALERT: REPEATED AUTH FAILURES</span>
+  </div>
+</div>
+
+<!-- Orbiting rings -->
+<div class="orbit o1"></div>
+<div class="orbit o2"></div>
+<div class="orbit o3"></div>
+
+<!-- Breach ripple -->
+<div class="breach-ring"></div>
+
+<!-- Alert text panel (behind shield in z-order) -->
+<div class="alert-panel">
+  <!-- Text above the hex -->
+  <div class="text-above">
+    <div class="alert-title">Security Alert — Session Suspended</div>
+    <div class="alert-body">
+      Your SSH account has been <span class="danger-hl">locked</span> following<br>
+      detection of a <span class="danger-hl">brute-force intrusion pattern</span>.<br>
+      <span class="hl">Unauthorized access attempts have been logged</span><br>
+      and flagged for review.
+    </div>
+    <div class="divider"></div>
+  </div>
+
+  <!-- Spacer — the hex shield sits here -->
+  <div style="height:207px"></div>
+
+  <!-- Text below the hex -->
+  <div class="text-below">
+    <div class="divider"></div>
+    <div class="alert-body" style="margin-top:14px">
+      Activate the shield above to <span class="hl">reset your credentials</span><br>
+      and restore secure access to your account.<br>
+      <span class="passkey-note">◈ &nbsp; Identity will be verified via registered passkeys</span>
+    </div>
+  </div>
+</div>
+
+<!-- Shield -->
+<div class="shield-wrap" onclick="start();">
+  <div class="hex">
+    <div class="lock">
+      <div class="lock-shackle"></div>
+      <div class="lock-body"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Status bars -->
+<div class="status-bar">
+  <div class="bar-row">
+    <div class="bar-label"></div>
+    <div class="bar-track"><div class="bar-fill" style="--w:72%"></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label danger"></div>
+    <div class="bar-track"><div class="bar-fill danger" style="--w:89%"></div></div>
+  </div>
+  <div class="bar-row">
+    <div class="bar-label"></div>
+    <div class="bar-track"><div class="bar-fill" style="--w:50%"></div></div>
+  </div>
+</div>
+
+<!-- Bottom bar -->
+<div class="bottom-bar">
+  <div class="dot-indicator"></div>
+  <div class="dot-indicator red"></div>
+  <div class="dot-indicator amber"></div>
+</div>
+
+<!-- Floating nodes + Data streams via JS (inline, no external) -->
+<div class="nodes" id="nodes"></div>
+<div class="streams" id="streams"></div>
+
+<script>
+  // ── Floating nodes ──
+  const nodesEl = document.getElementById('nodes');
+  const chars = '01:;[]{}|<>_#$%^&*';
+
+  for (let i = 0; i < 40; i++) {
+    const n = document.createElement('div');
+    n.className = 'node' + (Math.random() < 0.25 ? ' red' : '');
+    n.style.cssText = `
+      left: ${Math.random() * 100}%;
+      width: ${3 + Math.random() * 5}px;
+      height: ${3 + Math.random() * 5}px;
+      --dx: ${(Math.random() - 0.5) * 2};
+      animation-duration: ${6 + Math.random() * 10}s;
+      animation-delay: ${Math.random() * 10}s;
+    `;
+    nodesEl.appendChild(n);
+  }
+
+  // ── Data stream columns ──
+  const streamsEl = document.getElementById('streams');
+  const cols = Math.floor(window.innerWidth / 28);
+
+  function randChar() {
+    return chars[Math.floor(Math.random() * chars.length)];
+  }
+
+  for (let i = 0; i < cols; i++) {
+    if (Math.random() < 0.45) continue; // sparse
+    const col = document.createElement('div');
+    const isRed = Math.random() < 0.12;
+    col.className = 'stream-col' + (isRed ? ' red-stream' : '');
+    const len = 6 + Math.floor(Math.random() * 14);
+    col.textContent = Array.from({length: len}, randChar).join('');
+    col.style.cssText = `
+      left: ${i * 28 + Math.random() * 10}px;
+      animation-duration: ${5 + Math.random() * 12}s;
+      animation-delay: ${Math.random() * 12}s;
+      font-size: ${9 + Math.random() * 4}px;
+      opacity: 0;
+    `;
+    streamsEl.appendChild(col);
+
+    // randomize chars periodically
+    setInterval(() => {
+      col.textContent = Array.from({length: len}, randChar).join('');
+    }, 800 + Math.random() * 1200);
+  }
+</script>
+</body>
 </html>
+
 
