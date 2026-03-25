@@ -138,6 +138,10 @@ def create_banner():
 
 create_banner()
 
+@app.route('/')
+def index():
+	return redirect('/unlock')
+
 @app.route('/blockuser', methods=["POST"])
 def blockuser():
 	if not is_local(request):
